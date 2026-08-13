@@ -31,6 +31,22 @@ a = 'HTTP/1.1 201 Created\r\nContent-Type: application/json\r\nLocation: http://
 print(parse_HTTP_message(a.encode()))
 
 
+def create_HTTP_message(parseHTTP: dict):
+    header = parseHTTP["header"]
+    body = parseHTTP["body"]
+
+    msgHTTP = header["start line"] + "\r\n"
+
+    for k in header:
+        if k == "start line": continue
+        msgHTTP += f"{k}: {header[k]}\r\n"
+
+    msgHTTP += f"\r\n\r\n{body}"
+    return msgHTTP.encode()
+
+b = parse_HTTP_message(a.encode())
+print(create_HTTP_message(b).decode())
+
 
 
 """
