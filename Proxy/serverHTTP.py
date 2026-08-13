@@ -4,6 +4,36 @@ import socket
 # esta función se encarga de recibir el mensaje completo desde el cliente
 # en caso de que el mensaje sea más grande que el tamaño del buffer 'buff_size', esta función va esperar a que
 # llegue el resto. Para saber si el mensaje ya llegó por completo, se busca el caracter de fin de mensaje (parte de nuestro protocolo inventado)
+
+
+# Recibe un mensaje HTTP y lo convierte en un diccionario tipo:
+# { header: Diccionario con los head,   body: Body del mensaje}
+def parse_HTTP_message(http_message: bytes):
+    http = http_message.decode()
+    header, body = http.split("\r\n\r\n")
+
+    h_dt = {
+        "start line": header.split("\r\n")[0]
+    }
+
+    for h in header.split("\r\n")[1:]:
+        h_dt[h.split(": ")[0]] = h.split(": ")[1]
+
+
+    ds = {
+        "header": h_dt,
+        "body": body
+    }
+
+    return ds
+
+a = 'HTTP/1.1 201 Created\r\nContent-Type: application/json\r\nLocation: http://example.com/users/123\r\n\r\n{"message": "New user created", "user": {"id": 123, "firstName": "Example", "lastName": "Person", "email": "bsmth@example.com"}}'
+print(parse_HTTP_message(a.encode()))
+
+
+
+
+"""
  
 def receive_full_message(connection_socket, buff_size, end_sequence):
  
@@ -90,3 +120,4 @@ if __name__ == "__main__":
         print(f"conexión con {new_socket_address} ha sido cerrada")
  
         # seguimos esperando por si llegan otras conexiones
+"""
