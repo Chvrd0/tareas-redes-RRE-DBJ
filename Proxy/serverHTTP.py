@@ -9,7 +9,12 @@ import socket
 # { header: Diccionario con los head,   body: Body del mensaje}
 def parse_HTTP_message(http_message: bytes):
     http = http_message.decode()
-    header, body = http.split("\r\n\r\n")
+    head_body = http.split("\r\n\r\n")
+    header = head_body[0]
+    if len(head_body) == 2:
+        body = head_body[1]
+    else:
+        body = None
 
     h_dt = {
         "start line": header.split("\r\n")[0]
@@ -46,6 +51,10 @@ def create_HTTP_message(parseHTTP: dict):
 
 # b = parse_HTTP_message(a.encode())
 # print(create_HTTP_message(b).decode())
+
+
+def respuesta_HTTP(msg):
+    pass
 
 
 
@@ -92,7 +101,7 @@ if __name__ == "__main__":
     # una peticion no tiene body, solo se recibe hasta que exista un doble salto de linea.
     end_of_message = "\r\n\r\n"
 
-    new_socket_address = ('localhost', 8000)
+    new_socket_address = ('localhost' , 8000)
      
     print('Creando socket - Servidor')
     # armamos el socket
@@ -119,17 +128,13 @@ if __name__ == "__main__":
         # luego recibimos el mensaje usando la función que programamos
         # esta función entrega el mensaje en string (no en bytes) y sin el end_of_message
         recv_message = receive_full_message(new_socket, buff_size, end_of_message)
-    
-        with open("../msj-recibido.txt", "w") as f:
-            f.write(recv_message)
-     
-        print(f' -> Se ha recibido el siguiente mensaje: {recv_message}')
+        parsed_msg = parse_HTTP_message(recv_message.encode())
+        print(parsed_msg)
      
         # respondemos indicando que recibimos el mensaje
-        response_message = f"Se ha sido recibido con éxito el mensaje: {recv_message}"
+        response_message = respuesta_HTTP(parsed_msg)
      
         # el mensaje debe pasarse a bytes antes de ser enviado, para ello usamos encode
-        new_socket.send(response_message.encode())
      
         # cerramos la conexión
         # notar que la dirección que se imprime indica un número de puerto distinto al 5000
