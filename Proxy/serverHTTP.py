@@ -56,16 +56,18 @@ def create_HTTP_message(parseHTTP: dict):
 # print(create_HTTP_message(b).decode())
 
 
-def respuesta_HTTP(msg):
+def respuesta_HTTP(json):
     ans = {
         "header":{
             "start line": "HTTP/1.1 200 OK",
             "Content-Type": "text/html",
-            "X-ElQuePregunta": "Ricardo Román Eriz, David Ballester Jorge",
             "Content-Length": "201"
         },
         "body": '<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>CC4303</title>\n</head>\n<body>\n     <h1>Prueba de Respuesta</h1>\n     <h2>David Ballester y Ricardo Román</h2>\n</body>\n'
     }
+    for i in json:
+        ans["header"][i] = json[i]
+    
     return create_HTTP_message(ans)
     
 
@@ -147,7 +149,7 @@ if __name__ == "__main__":
         print(parsed_msg)
      
         # respondemos indicando que recibimos el mensaje
-        response_message = respuesta_HTTP(parsed_msg)
+        response_message = respuesta_HTTP(server_info)
         new_socket.send(response_message)
      
         # el mensaje debe pasarse a bytes antes de ser enviado, para ello usamos encode
