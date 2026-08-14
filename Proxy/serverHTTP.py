@@ -58,7 +58,8 @@ def respuesta_HTTP(msg):
         "header":{
             "start line": "HTTP/1.1 200 OK",
             "Content-Type": "text/html",
-            "Content-Length": "199"
+            "X-ElQuePregunta": "Ricardo Román Eriz, David Ballester Jorge",
+            "Content-Length": "201"
         },
         "body": '<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>CC4303</title>\n</head>\n<body>\n     <h1>Prueba de Respuesta</h1>\n     <h2>David Ballester y Ricardo Román</h2>\n</body>\n'
     }
