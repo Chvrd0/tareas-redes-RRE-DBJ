@@ -7,7 +7,7 @@ import json
 
 # Recibe un mensaje HTTP y lo convierte en un diccionario tipo:
 # { header: Diccionario con los head,   body: Body del mensaje}
-def parse_HTTP_message(http_message: bytes, json):
+def parse_HTTP_message(http_message: bytes, json = None):
     http = http_message.decode()
     head_body = http.split("\r\n\r\n")
     header = head_body[0]
@@ -23,8 +23,9 @@ def parse_HTTP_message(http_message: bytes, json):
     for h in header.split("\r\n")[1:]:
         h_dt[h.split(": ")[0]] = h.split(": ")[1]
 
-    for i in json:
-        h_dt[i] = json[i]
+    if json:
+        for i in json:
+            h_dt[i] = json[i]
 
 
     ds = {
@@ -56,7 +57,7 @@ def create_HTTP_message(parseHTTP: dict):
 # print(create_HTTP_message(b).decode())
 
 
-def respuesta_HTTP(json):
+def respuesta_HTTP(json = None):
     ans = {
         "header":{
             "start line": "HTTP/1.1 200 OK",
@@ -65,8 +66,9 @@ def respuesta_HTTP(json):
         },
         "body": '<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>CC4303</title>\n</head>\n<body>\n     <h1>Prueba de Respuesta</h1>\n     <h2>David Ballester y Ricardo Román</h2>\n</body>\n'
     }
-    for i in json:
-        ans["header"][i] = json[i]
+    if json:
+        for i in json:
+            ans["header"][i] = json[i]
     
     return create_HTTP_message(ans)
     
