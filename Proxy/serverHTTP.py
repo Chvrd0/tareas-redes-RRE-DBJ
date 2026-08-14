@@ -1,5 +1,5 @@
 import socket
- 
+import json
 # esta función se encarga de recibir el mensaje completo desde el cliente
 # en caso de que el mensaje sea más grande que el tamaño del buffer 'buff_size', esta función va esperar a que
 # llegue el resto. Para saber si el mensaje ya llegó por completo, se busca el caracter de fin de mensaje (parte de nuestro protocolo inventado)
@@ -7,7 +7,7 @@ import socket
 
 # Recibe un mensaje HTTP y lo convierte en un diccionario tipo:
 # { header: Diccionario con los head,   body: Body del mensaje}
-def parse_HTTP_message(http_message: bytes):
+def parse_HTTP_message(http_message: bytes, json):
     http = http_message.decode()
     head_body = http.split("\r\n\r\n")
     header = head_body[0]
@@ -22,6 +22,9 @@ def parse_HTTP_message(http_message: bytes):
 
     for h in header.split("\r\n")[1:]:
         h_dt[h.split(": ")[0]] = h.split(": ")[1]
+
+    for i in json:
+        h_dt[i] = json[i]
 
 
     ds = {
@@ -127,6 +130,8 @@ if __name__ == "__main__":
     # tener hasta 3 peticiones de conexión encoladas
     # si recibiera una 4ta petición de conexión la va a rechazar
     server_socket.listen(3)
+    with open("config.json") as f:
+        server_info = json.load(f)
      
     # nos quedamos esperando a que llegue una petición de conexión
     print('... Esperando clientes')
@@ -138,7 +143,7 @@ if __name__ == "__main__":
         # luego recibimos el mensaje usando la función que programamos
         # esta función entrega el mensaje en string (no en bytes) y sin el end_of_message
         recv_message = receive_full_message(new_socket, buff_size, end_of_message)
-        parsed_msg = parse_HTTP_message(recv_message.encode())
+        parsed_msg = parse_HTTP_message(recv_message.encode(), server_info)
         print(parsed_msg)
      
         # respondemos indicando que recibimos el mensaje
