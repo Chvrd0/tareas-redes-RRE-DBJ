@@ -54,7 +54,16 @@ def create_HTTP_message(parseHTTP: dict):
 
 
 def respuesta_HTTP(msg):
-    pass
+    ans = {
+        "header":{
+            "start line": "HTTP/1.1 200 OK",
+            "Content-Type": "text/html",
+            "Content-Length": "199"
+        },
+        "body": '<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>CC4303</title>\n</head>\n<body>\n     <h1>Prueba de Respuesta</h1>\n     <h2>David Ballester y Ricardo Román</h2>\n</body>\n'
+    }
+    return create_HTTP_message(ans)
+    
 
 
 
@@ -101,7 +110,7 @@ if __name__ == "__main__":
     # una peticion no tiene body, solo se recibe hasta que exista un doble salto de linea.
     end_of_message = "\r\n\r\n"
 
-    new_socket_address = ('localhost' , 8000)
+    new_socket_address = ('localhost', 8000)
      
     print('Creando socket - Servidor')
     # armamos el socket
@@ -133,6 +142,7 @@ if __name__ == "__main__":
      
         # respondemos indicando que recibimos el mensaje
         response_message = respuesta_HTTP(parsed_msg)
+        new_socket.send(response_message)
      
         # el mensaje debe pasarse a bytes antes de ser enviado, para ello usamos encode
      
