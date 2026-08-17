@@ -1,8 +1,5 @@
 import socket
 import json
-# esta función se encarga de recibir el mensaje completo desde el cliente
-# en caso de que el mensaje sea más grande que el tamaño del buffer 'buff_size', esta función va esperar a que
-# llegue el resto. Para saber si el mensaje ya llegó por completo, se busca el caracter de fin de mensaje (parte de nuestro protocolo inventado)
 
 
 # Recibe un mensaje HTTP y lo convierte en un diccionario tipo:
@@ -74,42 +71,33 @@ def respuesta_HTTP(json = None):
     
 
 
+def receive_HTTP_message(socket, buff_size):
+    msg = socket.recv(buff_size)
+    full_msg = msg
 
-def receive_full_message(connection_socket, buff_size, end_sequence):
+    header = False
+
+    while not header:
+        msg = socket.recv(buff_size)
+        full_msg += msg
+        header = headerEnded(full_msg.decode())
+
+    if "Content-Length" in parse_HTTP_message(full_msg)["header"]:
+        contenido = parse_HTTP_message(full_msg)["header"]["Content-Length"]
+        full_msg = cutHeader(full_msg.decode()) + socket.recv(int(contenido))
+    return full_msg.decode()
  
-    # recibimos la primera parte del mensaje
-    recv_message = connection_socket.recv(buff_size)
-    full_message = recv_message
- 
-    # verificamos si llegó el mensaje completo o si aún faltan partes del mensaje
-    is_end_of_message = contains_end_of_message(full_message.decode(), end_sequence)
- 
-    # entramos a un while para recibir el resto y seguimos esperando información
-    # mientras el buffer no contenga secuencia de fin de mensaje
-    while not is_end_of_message:
-        # recibimos un nuevo trozo del mensaje
-        recv_message = connection_socket.recv(buff_size)
- 
-        # lo añadimos al mensaje "completo"
-        full_message += recv_message
- 
-        # verificamos si es la última parte del mensaje
-        is_end_of_message = contains_end_of_message(full_message.decode(), end_sequence)
- 
-    # removemos la secuencia de fin de mensaje, esto entrega un mensaje en string
-    full_message = remove_end_of_message(full_message.decode(), end_sequence)
- 
-    # finalmente retornamos el mensaje
-    return full_message
- 
- 
-def contains_end_of_message(message, end_sequence):
-    return message.endswith(end_sequence)
+
+
+def headerEnded(message):
+    return "\r\n\r\n" in message
 
  
-def remove_end_of_message(full_message, end_sequence):
-    index = full_message.rfind(end_sequence)
-    return full_message[:index]
+def cutHeader(full_message):
+    index = full_message.rfind("\r\n\r\n")
+    return full_message[:index+5].encode()
+
+
  
 if __name__ == "__main__":
     # definimos el tamaño del buffer de recepción y la secuencia de fin de mensaje
@@ -122,17 +110,12 @@ if __name__ == "__main__":
      
     print('Creando socket - Servidor')
     # armamos el socket
-    # los parámetros que recibe el socket indican el tipo de conexión
-    # socket.SOCK_STREAM = socket orientado a conexión
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
      
-    # le indicamos al server socket que debe atender peticiones en la dirección address
-    # para ello usamos bind
+    # hacemos bind
     server_socket.bind(new_socket_address)
      
-    # luego con listen (función de sockets de python) le decimos que puede
-    # tener hasta 3 peticiones de conexión encoladas
-    # si recibiera una 4ta petición de conexión la va a rechazar
+    # limitamos las peticiones
     server_socket.listen(3)
     with open("config.json") as f:
         server_info = json.load(f)
@@ -144,20 +127,28 @@ if __name__ == "__main__":
         # y se crea un nuevo socket que se comunicará con el cliente
         new_socket, new_socket_address = server_socket.accept()
      
-        # luego recibimos el mensaje usando la función que programamos
-        # esta función entrega el mensaje en string (no en bytes) y sin el end_of_message
-        recv_message = receive_full_message(new_socket, buff_size, end_of_message)
-        parsed_msg = parse_HTTP_message(recv_message.encode(), server_info)
+        # luego recibimos el mensaje usando la nueva funcion
+        recv_message = receive_HTTP_message(new_socket, buff_size)
+        parsed_msg = parse_HTTP_message(recv_message.encode())
         print(parsed_msg)
+
+        # Nuevo socket apuntando a la direccion solicitada por el mensaje recibido
+        proxy_address = (parsed_msg["header"]['Host'], 80)
+        proxy_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        proxy_socket.connect(proxy_address)
+
+        # Manda a la dirección solicitada el mensaje tal cual se recibe
+        proxy_socket.send(create_HTTP_message(parsed_msg))
+
+        # Se recibe la respuesta del socket a la direccion solicitada y se cierra la conexión
+        res = receive_HTTP_message(proxy_socket, buff_size) 
+        proxy_socket.close()
      
-        # respondemos indicando que recibimos el mensaje
-        response_message = respuesta_HTTP(server_info)
-        new_socket.send(response_message)
-     
-        # el mensaje debe pasarse a bytes antes de ser enviado, para ello usamos encode
+        # Se responde sin cambiar lo que respondió la dirección solicitada
+        new_socket.send(res.encode())
+    
      
         # cerramos la conexión
-        # notar que la dirección que se imprime indica un número de puerto distinto al 5000
         new_socket.close()
         print(f"conexión con {new_socket_address} ha sido cerrada")
      
