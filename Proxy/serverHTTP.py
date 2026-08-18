@@ -103,8 +103,6 @@ if __name__ == "__main__":
     # definimos el tamaño del buffer de recepción y la secuencia de fin de mensaje
     buff_size = 4
 
-    # una peticion no tiene body, solo se recibe hasta que exista un doble salto de linea.
-    end_of_message = "\r\n\r\n"
 
     new_socket_address = ('localhost', 8000)
      
@@ -142,13 +140,14 @@ if __name__ == "__main__":
 
         # Se recibe la respuesta del socket a la direccion solicitada y se cierra la conexión
         res = receive_HTTP_message(proxy_socket, buff_size) 
-        proxy_socket.close()
+        print(res)
      
         # Se responde sin cambiar lo que respondió la dirección solicitada
         new_socket.send(res.encode())
     
      
         # cerramos la conexión
+        proxy_socket.close()
         new_socket.close()
         print(f"conexión con {new_socket_address} ha sido cerrada")
      
