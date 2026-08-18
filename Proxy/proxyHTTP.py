@@ -58,7 +58,7 @@ def create_HTTP_message(parseHTTP: dict):
 # print(create_HTTP_message(b).decode())
 
 
-def respuesta_HTTP(parseHTTP: dict):
+def respuesta_HTTP():
     ans = {
         "header":{
             "start line": "HTTP/1.1 403 Forbidden",
@@ -67,8 +67,7 @@ def respuesta_HTTP(parseHTTP: dict):
         },
         "body": '<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>LOL</title>\n</head>\n<body>\n     <h1>Prueba de Respuesta</h1>\n     <img src=[FOTO]> \n</body>\n'
     }
-    if blockedDomain(parseHTTP,JSON_INFO):
-        return create_HTTP_message(ans)
+    return create_HTTP_message(ans)
     
 
 
@@ -153,7 +152,7 @@ if __name__ == "__main__":
 
         # si el dominio está bloqueado mandamos respuesta al cliente y cerramos conexión
         if blockedDomain(parsed_msg, JSON_INFO):
-            client_socket.send(respuesta_HTTP(parsed_msg,JSON_INFO))
+            client_socket.send(respuesta_HTTP())
             client_socket.close()
 
         # reemplazamos palabras prohibidas
@@ -175,8 +174,8 @@ if __name__ == "__main__":
 
         # si el dominio del servidor está bloqueado se envían respuestas a servidor y cliente y se cierran las conexiones
         if blockedDomain(res,JSON_INFO):
-            server_socket.send(respuesta_HTTP(filtered_msg,JSON_INFO))
-            client_socket.send(respuesta_HTTP(filtered_msg,JSON_INFO))
+            server_socket.send(respuesta_HTTP())
+            client_socket.send(respuesta_HTTP())
             server_socket.close()
             client_socket.close()
 
