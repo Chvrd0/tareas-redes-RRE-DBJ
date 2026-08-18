@@ -1,6 +1,10 @@
 import socket
 import json
 
+FOTO = ""
+with open("config.json") as f:
+        JSON_INFO = f
+        SERVER_INFO = json.load(f)
 
 # Recibe un mensaje HTTP y lo convierte en un diccionario tipo:
 # { header: Diccionario con los head,   body: Body del mensaje}
@@ -54,20 +58,17 @@ def create_HTTP_message(parseHTTP: dict):
 # print(create_HTTP_message(b).decode())
 
 
-def respuesta_HTTP(json = None):
+def respuesta_HTTP(parseHTTP: dict):
     ans = {
         "header":{
-            "start line": "HTTP/1.1 200 OK",
+            "start line": "HTTP/1.1 403 Forbidden",
             "Content-Type": "text/html",
-            "Content-Length": "201"
+            "Content-Length": "172"
         },
-        "body": '<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>CC4303</title>\n</head>\n<body>\n     <h1>Prueba de Respuesta</h1>\n     <h2>David Ballester y Ricardo Román</h2>\n</body>\n'
+        "body": '<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>LOL</title>\n</head>\n<body>\n     <h1>Prueba de Respuesta</h1>\n     <img src=[FOTO]> \n</body>\n'
     }
-    if json:
-        for i in json:
-            ans["header"][i] = json[i]
-    
-    return create_HTTP_message(ans)
+    if blockedDomain(parseHTTP,JSON_INFO):
+        return create_HTTP_message(ans)
     
 
 
@@ -97,7 +98,30 @@ def cutHeader(full_message):
     index = full_message.rfind("\r\n\r\n")
     return full_message[:index+5].encode()
 
+def forbiddenReplace(parseHTTP: dict, json = None):
+    body = parseHTTP["body"]
+    if json:
+        for i in json:
+            if i == "forbidden_words":
+                words = json[i]
+        for word , replacement in words.items():
+            body.replace(word,replacement)
+    filtered_body = {
+        "header": parseHTTP["header"],
+        "body": body
+    }
+    return filtered_body
 
+def blockedDomain(parseHTTP: dict, json = None):
+    header = parseHTTP["header"]
+    if json:
+        for i in json:
+            if i == "blocked":
+                domains = json[i]
+        for i in domains:
+            if domains[i] == header['Host']:
+                return True
+    return False
  
 if __name__ == "__main__":
     # definimos el tamaño del buffer de recepción y la secuencia de fin de mensaje
@@ -115,8 +139,6 @@ if __name__ == "__main__":
      
     # limitamos las peticiones
     server_socket.listen(3)
-    with open("config.json") as f:
-        server_info = json.load(f)
      
     # nos quedamos esperando a que llegue una petición de conexión
     print('... Esperando clientes')
@@ -128,7 +150,16 @@ if __name__ == "__main__":
         # luego recibimos el mensaje usando la nueva funcion
         recv_message = receive_HTTP_message(new_socket, buff_size)
         parsed_msg = parse_HTTP_message(recv_message.encode())
+
+        # si el dominio está bloqueado mandamos respuesta al cliente y cerramos conexión
+        if blockedDomain(parsed_msg, JSON_INFO):
+            new_socket.send(respuesta_HTTP(parsed_msg,JSON_INFO))
+            new_socket.close()
+
+        # reemplazamos palabras prohibidas
+        filtered_msg = forbiddenReplace(parsed_msg, JSON_INFO)
         print(parsed_msg)
+        print(filtered_msg)
 
         # Nuevo socket apuntando a la direccion solicitada por el mensaje recibido
         proxy_address = (parsed_msg["header"]['Host'], 80)
@@ -136,17 +167,24 @@ if __name__ == "__main__":
         proxy_socket.connect(proxy_address)
 
         # Manda a la dirección solicitada el mensaje tal cual se recibe
-        proxy_socket.send(create_HTTP_message(parsed_msg))
+        proxy_socket.send(create_HTTP_message(filtered_msg))
 
         # Se recibe la respuesta del socket a la direccion solicitada y se cierra la conexión
         res = receive_HTTP_message(proxy_socket, buff_size) 
         print(res)
-     
+
+        # si el dominio del servidor está bloqueado se envían respuestas a servidor y cliente y se cierran las conexiones
+        if blockedDomain(res,JSON_INFO):
+            proxy_socket.send(respuesta_HTTP(filtered_msg,JSON_INFO))
+            new_socket.send(respuesta_HTTP(filtered_msg,JSON_INFO))
+            proxy_socket.close()
+            new_socket.close()
+
         # Se responde sin cambiar lo que respondió la dirección solicitada
         new_socket.send(res.encode())
     
      
-        # cerramos la conexión
+        # cerramos las conexiones
         proxy_socket.close()
         new_socket.close()
         print(f"conexión con {new_socket_address} ha sido cerrada")
