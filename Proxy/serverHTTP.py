@@ -25,8 +25,8 @@ def parse_HTTP_message(http_message: bytes, json = None):
         h_dt[h.split(": ")[0]] = h.split(": ")[1]
 
     if json:
-        for i in json:
-            h_dt[i] = json[i]
+        for i in json["heads"]:
+            h_dt[i] = json["heads"][i]
 
 
     ds = {
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     buff_size = 4
 
 
-    new_socket_address = ('localhost', 8000)
+    new_socket_address = ('10.198.230.8', 8000)
      
     print('Creando socket - Servidor')
     # armamos el socket

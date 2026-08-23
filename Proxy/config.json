@@ -2,5 +2,5 @@
     "user": "--su email--",
     "blocked": ["www.dcc.uchile.cl", "cc4303.bachmann.cl/secret"],
     "forbidden_words": [{"proxy": "[REDACTED]"}, {"DCC": "[FORBIDDEN]"}, {"biblioteca": "[???]"}],
-    "X-ElQuePregunta": "Ricardo Román Eriz, David Ballester Jorge"
+    "heads": {"X-ElQuePregunta": "Ricardo Román Eriz, David Ballester Jorge"}
 }
