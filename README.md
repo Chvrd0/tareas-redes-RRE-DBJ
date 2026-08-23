@@ -7,3 +7,4 @@ Integrantes:
 - Ricardo Román Eriz
 
 ### Para ver las diferentes tareas, cambiar de rama en el repositorio.
+- Tarea 1: tarea1-proxy
