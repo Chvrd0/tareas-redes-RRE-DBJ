@@ -1,7 +1,8 @@
 import socket
 import json
 
-FOTO = '403.jpg'
+FOTO = '"403.jpg"'
+ip = "localhost"
 
 with open("config.json") as f:
         JSON_INFO = f
@@ -66,7 +67,7 @@ def respuesta_HTTP():
             "Content-Type": "text/html",
             "Content-Length": "172"
         },
-        "body": f'<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>LOL</title>\n</head>\n<body>\n     <h1>Lo siento, página prohibida</h1>\n     <img src={FOTO}> \n</body>\n'
+        "body": f'<!DOCTYPE html>\n<html lang="es">\n<head>\n     <meta charset="UTF-8">\n     <title>LOL</title>\n</head>\n<body>\n     <h1>Lo siento, página prohibida</h1>\n     <img src={FOTO} > \n</body>\n'
     }
     return create_HTTP_message(ans)
     
@@ -141,13 +142,14 @@ def blockedDomain(parseHTTP: dict, json = None):
             domains = json["blocked"]
         return to in domains
     return False
- 
+
+
 if __name__ == "__main__":
     # definimos el tamaño del buffer de recepción y la secuencia de fin de mensaje
     buff_size = 4
 
 
-    proxy_socket_address = ('localhost', 8000)
+    proxy_socket_address = (f'{ip}', 8000)
      
     print('Creando socket - Servidor')
     # armamos el socket
