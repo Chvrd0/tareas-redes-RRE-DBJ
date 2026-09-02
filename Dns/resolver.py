@@ -1,5 +1,27 @@
 import socket
+from dnslib import DNSRecord
+from dnslib.dns import CLASS, QTYPE
+import dnslib 
 IP_VM = "localhost"
+
+
+
+def parseDNS(data):
+    d = DNSRecord.parse(data)
+
+    parsed = {
+        "QNAME": d.get_q().get_qname(),
+        "ANCOUNT": d.header.a,
+        "NSCOUNT": d.header.auth,
+        "ARCOUNT": d.header.ar,
+        "ANSWER": d.rr,
+        "AUTHORITY": d.auth,
+        "ADDITIONAL": d.ar
+    }
+    return parsed
+
+
+
 
 if __name__ == "__main__":
     buff_size = 10000
@@ -14,3 +36,5 @@ if __name__ == "__main__":
         msg, remitente = server_socket.recvfrom(buff_size)
 
         print(f" -> Se ha recibido con éxito el mensaje: \n -> Mensaje: {msg}\n -> Desde {remitente}")
+
+        print(f"-> Mensaje parseado: {parseDNS(msg)}")
