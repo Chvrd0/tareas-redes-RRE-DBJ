@@ -157,4 +157,4 @@ if __name__ == "__main__":
         else:
             if DEBUG:
                 print(f"(debug) No se pudo resolver la consulta para {qname}")
-```
+
