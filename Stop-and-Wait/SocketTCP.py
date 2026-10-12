@@ -171,17 +171,28 @@ class SocketTCP:
     def close(self):
         """Inicia el cierre: FIN -> espera FIN+ACK -> envía ACK final."""
         x = self.seq
+        self.socket.settimeout(0.5)
+        for i in range(3):
+            self.socket.sendto(self.create_segment(self.FIN, x), self.dest_addr)
+            try:
+                data, addr = self.socket.recvfrom(20)
+                flags, seq, _ = self.parse_segment(data)
+                if (addr == self.dest_addr and flags & self.FIN and flags & self.ACK
+                        and seq == self.add_seq(x, 1)):
+                    break
+            except socket.timeout:
+                continue
 
-        self.socket.sendto(self.create_segment(self.FIN, x), self.dest_addr)
+        for i in range(3):
+            self.socket.sendto(self.create_segment(self.ACK, self.add_seq(x, 2)), self.dest_addr)
+            try:
+                data, addr = self.socket.recvfrom(20)
+                flags, seq, _ = self.parse_segment(data)
+                if (addr == self.dest_addr and flags & self.FIN and flags & self.ACK and seq == self.add_seq(x, 1)):
+                    continue
+            except socket.timeout:
+                continue
 
-        while True:
-            data, addr = self.socket.recvfrom(20)
-            flags, seq, _ = self.parse_segment(data)
-            if (addr == self.dest_addr and flags & self.FIN and flags & self.ACK
-                    and seq == self.add_seq(x, 1)):
-                break
-
-        self.socket.sendto(self.create_segment(self.ACK, self.add_seq(x, 2)), self.dest_addr)
         self.clean()
 
     def recv_close(self):
@@ -192,16 +203,20 @@ class SocketTCP:
             if addr == self.dest_addr and flags & self.FIN and x == self.seq:
                 break
 
-        self.socket.sendto(
-            self.create_segment(self.FIN | self.ACK, self.add_seq(x, 1)),
-            self.dest_addr
-        )
+        self.socket.settimeout(0.5)
+        for i in range(3):
+            self.socket.sendto(
+                self.create_segment(self.FIN | self.ACK, self.add_seq(x, 1)),
+                self.dest_addr
+            )
+            try:
+                data, addr = self.socket.recvfrom(20)
+                flags, seq, _ = self.parse_segment(data)
+                if addr == self.dest_addr and flags & self.ACK and seq == self.add_seq(x, 2):
+                    break
+            except socket.timeout:
+                continue
 
-        while True:
-            data, addr = self.socket.recvfrom(20)
-            flags, seq, _ = self.parse_segment(data)
-            if addr == self.dest_addr and flags & self.ACK and seq == self.add_seq(x, 2):
-                break
         self.clean()
 
 
