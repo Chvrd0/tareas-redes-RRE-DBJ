@@ -142,6 +142,51 @@ class SocketTCP:
         return data
 
 
+    def clean(self):
+        """Libera los recursos de la conexión."""
+        self.socket.close()
+        self.seq = None
+        self.dest_addr = None
+        self.remaining = 0
+        self.buffer = b""
+
+    def close(self):
+        """Inicia el cierre: FIN -> espera FIN+ACK -> envía ACK final."""
+        x = self.seq
+
+        self.socket.sendto(self.create_segment(self.FIN, x), self.dest_addr)
+
+        while True:
+            data, addr = self.socket.recvfrom(20)
+            flags, seq, _ = self.parse_segment(data)
+            if (addr == self.dest_addr and flags & self.FIN and flags & self.ACK
+                    and seq == self.add_seq(x, 1)):
+                break
+
+        self.socket.sendto(self.create_segment(self.ACK, self.add_seq(x, 2)), self.dest_addr)
+        self.clean()
+
+    def recv_close(self):
+        """Lado que recibe el cierre: espera FIN -> envía FIN+ACK -> espera ACK."""
+        while True:
+            data, addr = self.socket.recvfrom(20)
+            flags, x, _ = self.parse_segment(data)
+            if addr == self.dest_addr and flags & self.FIN and x == self.seq:
+                break
+
+        self.socket.sendto(
+            self.create_segment(self.FIN | self.ACK, self.add_seq(x, 1)),
+            self.dest_addr
+        )
+
+        while True:
+            data, addr = self.socket.recvfrom(20)
+            flags, seq, _ = self.parse_segment(data)
+            if addr == self.dest_addr and flags & self.ACK and seq == self.add_seq(x, 2):
+                break
+        self.clean()
+
+
     @staticmethod
     def create_segment(flags, seq, data=b""):
         """Segmento = header de 4 bytes + data."""
