@@ -28,15 +28,31 @@ class SocketTCP:
     def connect(self, address):
         """Handshake del lado cliente: SYN -> SYN+ACK -> ACK."""
         x = 0
-        self.socket.sendto(self.create_segment(self.SYN, x), address)
+        self.socket.settimeout(0.5)
 
-        data, new_addr = self.socket.recvfrom(20)
-        flags, seq, _ = self.parse_segment(data)
-        if not (flags & self.SYN and flags & self.ACK) or seq != self.add_seq(x, 1):
-            raise ConnectionError("Handshake fallido: se esperaba SYN+ACK")
+        while True:
+            self.socket.sendto(self.create_segment(self.SYN, x), address)
+            try:
+                data, new_addr = self.socket.recvfrom(20)
+                
+            except socket.timeout:
+                continue
+
+            flags, seq, _ = self.parse_segment(data)
+            if flags & self.SYN and flags & self.ACK and seq == self.add_seq(x, 1):
+                break
 
         self.dest_addr = new_addr
-        self.socket.sendto(self.create_segment(self.ACK, self.add_seq(x, 2)), new_addr)
+        self.socket.settimeout(1.5)
+        while True:
+            self.socket.sendto(self.create_segment(self.ACK, self.add_seq(x, 2)), self.dest_addr)
+            try:
+                data, addr = self.socket.recvfrom(20)
+            except socket.timeout:
+                break
+
+        
+        self.socket.settimeout(None)
         self.seq = self.add_seq(x, 3)
 
     def accept(self):
@@ -53,16 +69,18 @@ class SocketTCP:
         conn.dest_addr = client_addr
         conn_addr = conn.socket.getsockname()
 
-        conn.socket.sendto(
-            self.create_segment(self.SYN | self.ACK, self.add_seq(x, 1)),
-            client_addr
-        )
-
         while True:
-            data, addr = conn.socket.recvfrom(20)
-            flags, seq, _ = self.parse_segment(data)
-            if addr == client_addr and flags & self.ACK and seq == self.add_seq(x, 2):
-                break
+            conn.socket.sendto(
+                self.create_segment(self.SYN | self.ACK, self.add_seq(x, 1)),
+                client_addr
+            )
+            try:
+                data, addr = conn.socket.recvfrom(20)
+                flags, seq, _ = self.parse_segment(data)
+                if addr == client_addr and flags & self.ACK and seq == self.add_seq(x, 2):
+                    break
+            except socket.timeout:
+                continue
 
         conn.seq = self.add_seq(x, 3)
         return conn, conn_addr
