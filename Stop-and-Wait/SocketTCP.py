@@ -30,7 +30,7 @@ class SocketTCP:
         x = 0
         self.socket.sendto(self.create_segment(self.SYN, x), address)
 
-        data, new_addr = self.socket.recvfrom(1024)
+        data, new_addr = self.socket.recvfrom(20)
         flags, seq, _ = self.parse_segment(data)
         if not (flags & self.SYN and flags & self.ACK) or seq != self.add_seq(x, 1):
             raise ConnectionError("Handshake fallido: se esperaba SYN+ACK")
@@ -43,7 +43,7 @@ class SocketTCP:
         """Espera un SYN en el socket de escucha y crea un nuevo SocketTCP
         para la comunicación real. Retorna (nuevo_socket, direccion_bindeada)."""
         while True:
-            data, client_addr = self.socket.recvfrom(1024)
+            data, client_addr = self.socket.recvfrom(20)
             flags, x, _ = self.parse_segment(data)
             if flags & self.SYN and not flags & self.ACK:
                 break
@@ -59,7 +59,7 @@ class SocketTCP:
         )
 
         while True:
-            data, addr = conn.socket.recvfrom(1024)
+            data, addr = conn.socket.recvfrom(20)
             flags, seq, _ = self.parse_segment(data)
             if addr == client_addr and flags & self.ACK and seq == self.add_seq(x, 2):
                 break
@@ -77,7 +77,7 @@ class SocketTCP:
             self.socket.sendto(segment, self.dest_addr)
 
             try:
-                data, _ = self.socket.recvfrom(1024)
+                data, _ = self.socket.recvfrom(20)
 
             except socket.timeout:
                 continue
@@ -96,7 +96,7 @@ class SocketTCP:
         self.socket.settimeout(None)
 
         while True:
-            data, _ = self.socket.recvfrom(1024)
+            data, _ = self.socket.recvfrom(20)
             flags, seq, msg = self.parse_segment(data)
 
             if seq == self.seq:
