@@ -6,25 +6,26 @@ def receive_full_message(connection_socket, buff_size):
  
     recv_message = connection_socket.recv(buff_size)
     full_message = recv_message
- 
+
     # verificamos si llegó el mensaje completo o si aún faltan partes del mensaje
-    is_end_of_message = connection_socket.remaining == -1
- 
+    # (no quedan bytes por recibir de la red ni sobrantes por entregar)
+    is_end_of_message = connection_socket.remaining == 0 and not connection_socket.buffer
+
     # entramos a un while para recibir el resto y seguimos esperando información
     # mientras el buffer no contenga secuencia de fin de mensaje
     while not is_end_of_message:
         # recibimos un nuevo trozo del mensaje
         recv_message = connection_socket.recv(buff_size)
- 
+
         # lo añadimos al mensaje "completo"
         full_message += recv_message
- 
+
         # verificamos si es la última parte del mensaje
-        is_end_of_message = connection_socket.remaining == -1
+        is_end_of_message = connection_socket.remaining == 0 and not connection_socket.buffer
  
  
-    # finalmente retornamos el mensaje
-    return full_message.decode()
+    # finalmente retornamos el mensaje (en bytes, para preservarlo intacto)
+    return full_message
 
 if __name__ == "__main__":
     buff_size = 16
@@ -42,7 +43,9 @@ if __name__ == "__main__":
 
     msg = receive_full_message(new_connection, buff_size)
 
-    with open("utils/received_message.txt", "w") as file:
+    # modo binario: se escriben exactamente los bytes recibidos, sin que el
+    # sistema altere los saltos de linea (importante en Windows).
+    with open("utils/received_message.txt", "wb") as file:
         file.write(msg)
 
     print("Mensaje completo! Guardado en utils/received_message.txt")
