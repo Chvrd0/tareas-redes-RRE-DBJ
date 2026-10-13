@@ -22,8 +22,7 @@ class SocketTCP:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.seq = None
         self.dest_addr = None
-        self.remaining = 0
-        self.buffer = b""
+        self.remaining = -1
 
     # -------------------------------------------------------------------------------------------------
     # ----- 3-way handshake ---------------------------------------------------------------------------
@@ -180,21 +179,19 @@ class SocketTCP:
         """Retorna hasta `size` bytes del mensaje. Si faltan datos y el mensaje
         no ha terminado, se llama recursivamente para seguir recibiendo."""
         if DEBUG: print(f"RECV: Receiving up to {size} bytes")
-        if self.remaining == 0 and not self.buffer:
+        if self.remaining == -1:
             self.remaining = int.from_bytes(self.receive_and_confirm(), "big")
             if DEBUG: print(f"RECV: Starting new message reception with size {self.remaining} bytes")
 
-        if not self.buffer and self.remaining > 0:
-            if DEBUG: print(f"RECV: Buffer empty, receiving next chunk. Remaining bytes: {self.remaining}")
+        if self.remaining > 0:
             chunk = self.receive_and_confirm()
             self.remaining -= len(chunk)
-            self.buffer = chunk
+            if DEBUG: print(f"RECV: Received chunk of length {len(chunk)} bytes, remaining {self.remaining} bytes")
 
-        data, self.buffer = self.buffer[:size], self.buffer[size:]
-
-        if len(data) < size and self.remaining > 0:
-            data += self.recv(size - len(data))
-        return data
+        if self.remaining == 0:
+            if DEBUG: print("RECV: Message reception complete")
+            self.remaining = -1
+        return chunk
 
     # -------------------------------------------------------------------------------------------------
     # ----- Métodos de cierre de la conexión ----------------------------------------------------------
@@ -205,8 +202,7 @@ class SocketTCP:
         self.socket.close()
         self.seq = None
         self.dest_addr = None
-        self.remaining = 0
-        self.buffer = b""
+        self.remaining = -1
 
     # -------------------------------------------------------------------------------------------------
     def close(self):
