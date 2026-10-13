@@ -1,9 +1,6 @@
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed id elit mi. Cras faucibus magna justo, ac rutrum ex bibendum id. Etiam fermentum libero in felis laoreet lobortis. Donec pretium tellus id auctor pellentesque. Morbi augue sapien, facilisis eu turpis ac, pharetra tempus tortor. Nullam in faucibus eros, at porta nibh. Sed id neque in tellus molestie malesuada venenatis a felis. Etiam scelerisque nibh ut maximus hendrerit. Sed at lorem non est rutrum tempus et nec dolor.
-
-Sed vestibulum, ante ac venenatis volutpat, tortor justo tempus risus, ac rutrum metus libero sed tortor. Vivamus non consectetur nibh. Vestibulum tempus mauris nec est gravida, id facilisis dolor blandit. Nunc blandit nisl consectetur tincidunt tincidunt. Sed iaculis sollicitudin dignissim. Phasellus nec lacus id lectus faucibus auctor. Nam rhoncus, mi nec semper tincidunt, nunc odio aliquam felis, ut cursus elit mi eu lorem. Nullam a nunc finibus justo ultricies sollicitudin. Nunc eleifend suscipit molestie. Maecenas vestibulum tortor sed fringilla aliquam. Quisque vel risus scelerisque, ultricies est faucibus, semper turpis.
-
-Proin eu felis id purus feugiat hendrerit nec eget neque. Nam iaculis purus eget diam venenatis feugiat. Nulla quis suscipit nisi, ut dictum diam. Maecenas ac tristique nulla. Aenean non risus vitae magna imperdiet ullamcorper. Nulla facilisi. Curabitur ut enim sapien. Nullam dignissim vestibulum tristique. Morbi pellentesque pharetra elit, at feugiat enim suscipit id. Vivamus in bibendum orci, sit amet aliquet justo.
-
-Duis sapien sapien, vestibulum nec dignissim et, posuere eu velit. Phasellus at magna feugiat, sollicitudin ligula ac, finibus leo. Aliquam erat volutpat. Nam sodales, augue a laoreet porta, est augue placerat mi, vel molestie ipsum nisi non dolor. Aenean nibh velit, porta eu odio et, semper facilisis neque. Maecenas a dignissim ligula. Vivamus dignissim justo vel semper bibendum. Etiam feugiat auctor molestie. Duis finibus consectetur mi vitae rutrum. Nullam et sem vel justo hendrerit dapibus quis sed tellus.
-
-Mauris velit massa, ultrices ac ligula tincidunt, condimentum cursus justo. Integer laoreet, ipsum ut mollis dictum, justo tellus blandit ante, sit amet aliquet sapien quam id turpis. Sed lobortis risus justo, et dapibus elit vestibulum at. Quisque id euismod nisi. Fusce sollicitudin enim sed viverra tincidunt. In suscipit massa quis luctus tempus. Nullam aliquet tincidunt ligula luctus placerat. Nulla luctus nisi eget ante rutrum placerat. Mauris bibendum posuere dolor eget sollicitudin. Fusce semper mi et posuere efficitur.
+Prueba muchisimo más corta 
+prueba para ver si funciona
+todo okei por acá
+ojalá funcione
+Ganó, gustó y goleó la Universidad e Chile en Rancagua contra Ñublense.
+Al parecer, funciona! :D

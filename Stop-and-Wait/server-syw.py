@@ -4,7 +4,6 @@ IP = "localhost"
 
 def receive_full_message(connection_socket, buff_size):
  
-    # recibimos el largo del mensaje
     recv_message = connection_socket.recv(buff_size)
     full_message = recv_message
  
@@ -37,19 +36,18 @@ if __name__ == "__main__":
     server_socket.bind(address)
 
     print("Esperando cliente...")
-    while True:
-        new_connection, new_address = server_socket.accept()
+    new_connection, new_address = server_socket.accept()
 
-        print(f"Cliente conectado: {new_address}")
+    print(f"Cliente conectado: {new_address}")
 
-        msg = receive_full_message(new_connection, buff_size)
+    msg = receive_full_message(new_connection, buff_size)
 
-        with open("utils/received_message.txt", "w") as file:
-            file.write(msg)
+    with open("utils/received_message.txt", "w") as file:
+        file.write(msg)
 
-        print("\nMensaje completo!")
+    print("Mensaje completo! Guardado en utils/received_message.txt")
 
-        new_connection.recv_close()
+    new_connection.recv_close()
 
 
     
