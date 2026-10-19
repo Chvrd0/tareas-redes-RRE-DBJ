@@ -22,7 +22,12 @@ class SocketTCP:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.seq = None
         self.dest_addr = None
-        self.remaining = -1
+        # Bytes del mensaje en curso que todavia no se reciben desde la red.
+        # 0 (y buffer vacio) significa que no hay un mensaje en curso.
+        self.remaining = 0
+        # Bytes ya recibidos desde la red pero aun no entregados al llamador
+        # (sobrantes cuando un trozo excede el buff_size pedido en recv).
+        self.buffer = b""
 
     # -------------------------------------------------------------------------------------------------
     # ----- 3-way handshake ---------------------------------------------------------------------------
@@ -43,7 +48,7 @@ class SocketTCP:
             try:
                 data, new_addr = self.socket.recvfrom(20)
                 
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 if DEBUG: print("CONNECT: Timeout waiting for SYN+ACK, resending SYN")
                 continue
 
@@ -59,7 +64,7 @@ class SocketTCP:
             if DEBUG: print(f"CONNECT: Sent ACK with seq={self.add_seq(x, 2)} to {self.dest_addr}")
             try:
                 data, addr = self.socket.recvfrom(20)
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 if DEBUG: print("CONNECT: Timeout waiting for ACK, breaking")
                 break
 
@@ -85,6 +90,8 @@ class SocketTCP:
         conn_addr = conn.socket.getsockname()
         if DEBUG: print(f"ACCEPT: Created new socket with address {conn_addr}")
 
+        conn.socket.settimeout(0.5)
+        tries = 0
         while True:
             if DEBUG: print(f"ACCEPT: Sending SYN+ACK with seq={self.add_seq(x, 1)} to {client_addr}")
             conn.socket.sendto(
@@ -93,14 +100,29 @@ class SocketTCP:
             )
             try:
                 data, addr = conn.socket.recvfrom(20)
-                flags, seq, _ = self.parse_segment(data)
-                if addr == client_addr and flags & self.ACK and seq == self.add_seq(x, 2):
-                    if DEBUG: print(f"ACCEPT: Received ACK with seq={seq} from {addr}, connection established")
+            except (socket.timeout, ConnectionResetError):
+                tries += 1
+                if tries >= 3:
+                    # Tercer timeout: asumimos que el ACK final se perdio y que
+                    # el cliente ya dio por establecida la conexion.
+                    if DEBUG: print("ACCEPT: Timeout limit reached, assuming final ACK lost, connection established")
                     break
-            except socket.timeout:
                 if DEBUG: print("ACCEPT: Timeout waiting for ACK, resending SYN+ACK")
                 continue
 
+            flags, seq, _ = self.parse_segment(data)
+            if addr == client_addr and flags & self.ACK and seq == self.add_seq(x, 2):
+                if DEBUG: print(f"ACCEPT: Received ACK with seq={seq} from {addr}, connection established")
+                break
+            # Caso borde: se perdio el ACK final del handshake y el cliente ya
+            # empezo a enviar datos. El primer segmento de datos usa seq=x+3.
+            # Lo tomamos como confirmacion implicita; ese segmento se
+            # retransmitira (Stop & Wait) y lo recibira recv().
+            if addr == client_addr and seq == self.add_seq(x, 3):
+                if DEBUG: print("ACCEPT: Received first data segment, handshake assumed complete")
+                break
+
+        conn.socket.settimeout(None)
         conn.seq = self.add_seq(x, 3)
         return conn, conn_addr
 
@@ -119,7 +141,7 @@ class SocketTCP:
             try:
                 data, _ = self.socket.recvfrom(20)
 
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 if DEBUG: print("SEND_AND_WAIT: Timeout waiting for ACK, resending segment")
                 continue
 
@@ -141,7 +163,12 @@ class SocketTCP:
         if DEBUG: print("RECEIVE_AND_CONFIRM: Waiting for incoming segment...")
 
         while True:
-            data, _ = self.socket.recvfrom(20)
+            try:
+                data, _ = self.socket.recvfrom(20)
+            except ConnectionResetError:
+                # Windows puede lanzar esto por un ICMP de un envio previo;
+                # lo ignoramos y seguimos esperando el segmento.
+                continue
             flags, seq, msg = self.parse_segment(data)
             if DEBUG: print(f"RECEIVE_AND_CONFIRM: Received segment with seq={seq}")
 
@@ -175,23 +202,40 @@ class SocketTCP:
             self.send_and_wait(msg[i:i + 16])
 
     # -------------------------------------------------------------------------------------------------
-    def recv(self, size):
-        """Retorna hasta `size` bytes del mensaje. Si faltan datos y el mensaje
-        no ha terminado, se llama recursivamente para seguir recibiendo."""
-        if DEBUG: print(f"RECV: Receiving up to {size} bytes")
-        if self.remaining == -1:
+    def recv(self, buff_size):
+        """Retorna a lo mas `buff_size` bytes del mensaje en curso.
+
+        Retorna apenas la cantidad de datos entregables alcanza
+        min(largo_restante_del_mensaje, buff_size). Si un trozo recibido
+        excede lo pedido, el sobrante se guarda en self.buffer y se entrega
+        en la siguiente llamada, de modo que no se pierden datos y se puede
+        llamar a recv() las veces que haga falta para recibir todo el mensaje.
+        """
+        if DEBUG: print(f"RECV: Receiving up to {buff_size} bytes")
+
+        # Si no hay un mensaje en curso (nada por recibir de la red ni
+        # sobrantes pendientes), el primer segmento trae el largo del mensaje.
+        if self.remaining == 0 and not self.buffer:
             self.remaining = int.from_bytes(self.receive_and_confirm(), "big")
             if DEBUG: print(f"RECV: Starting new message reception with size {self.remaining} bytes")
 
-        if self.remaining > 0:
-            chunk = self.receive_and_confirm()
-            self.remaining -= len(chunk)
-            if DEBUG: print(f"RECV: Received chunk of length {len(chunk)} bytes, remaining {self.remaining} bytes")
+        # Bytes del mensaje que aun no se entregan al llamador.
+        pending = self.remaining + len(self.buffer)
+        goal = min(pending, buff_size)
 
-        if self.remaining == 0:
+        # Recibimos segmentos hasta tener al menos `goal` bytes disponibles.
+        while len(self.buffer) < goal:
+            chunk = self.receive_and_confirm()
+            self.buffer += chunk
+            self.remaining -= len(chunk)
+            if DEBUG: print(f"RECV: Received chunk of length {len(chunk)} bytes, remaining from net {self.remaining} bytes")
+
+        out = self.buffer[:goal]
+        self.buffer = self.buffer[goal:]
+
+        if self.remaining == 0 and not self.buffer:
             if DEBUG: print("RECV: Message reception complete")
-            self.remaining = -1
-        return chunk
+        return out
 
     # -------------------------------------------------------------------------------------------------
     # ----- Métodos de cierre de la conexión ----------------------------------------------------------
@@ -202,7 +246,8 @@ class SocketTCP:
         self.socket.close()
         self.seq = None
         self.dest_addr = None
-        self.remaining = -1
+        self.remaining = 0
+        self.buffer = b""
 
     # -------------------------------------------------------------------------------------------------
     def close(self):
@@ -221,7 +266,7 @@ class SocketTCP:
                         and seq == self.add_seq(x, 1)):
                     if DEBUG: print(f"CLOSE: Received FIN+ACK with seq={seq} from {addr}")
                     break
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 if DEBUG: print("CLOSE: Timeout waiting for FIN+ACK, resending FIN")
                 continue
 
@@ -234,7 +279,7 @@ class SocketTCP:
                 if (addr == self.dest_addr and flags & self.FIN and flags & self.ACK and seq == self.add_seq(x, 1)):
                     if DEBUG: print(f"CLOSE: Received FIN+ACK with seq={seq} from {addr}, responding with final ACK")
                     continue
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 if DEBUG: print("CLOSE: Timeout waiting for final ACK, assuming connection closed")
                 break
 
@@ -244,12 +289,23 @@ class SocketTCP:
     # -------------------------------------------------------------------------------------------------
     def recv_close(self):
         """Lado que recibe el cierre: espera FIN -> envía FIN+ACK -> espera ACK."""
+        self.socket.settimeout(None)
         while True:
-            data, addr = self.socket.recvfrom(20)
+            try:
+                data, addr = self.socket.recvfrom(20)
+            except ConnectionResetError:
+                continue
             flags, x, _ = self.parse_segment(data)
             if addr == self.dest_addr and flags & self.FIN and x == self.seq:
                 if DEBUG: print(f"RECV_CLOSE: Received FIN with seq={x} from {addr}")
                 break
+            # Caso borde: se perdió el ACK del último segmento de datos. El
+            # emisor retransmite ese segmento (seq == self.seq - 2) mientras
+            # espera para poder cerrar. Lo reconfirmamos para que su send()
+            # termine y pueda enviarnos el FIN.
+            if addr == self.dest_addr and not flags & self.FIN and x == self.add_seq(self.seq, -2):
+                self.socket.sendto(self.create_segment(self.ACK, self.add_seq(x, 1)), self.dest_addr)
+                if DEBUG: print(f"RECV_CLOSE: Re-confirmando dato retransmitido seq={x} con ACK {self.add_seq(x, 1)}")
 
         self.socket.settimeout(0.5)
         for i in range(3):
@@ -264,7 +320,7 @@ class SocketTCP:
                 if addr == self.dest_addr and flags & self.ACK and seq == self.add_seq(x, 2):
                     if DEBUG: print(f"RECV_CLOSE: Received ACK with seq={seq} from {addr}")
                     break
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 if DEBUG: print("RECV_CLOSE: Timeout waiting for ACK, resending FIN+ACK")
                 continue
         if DEBUG: print("RECV_CLOSE: Connection closed, cleaning up resources")
