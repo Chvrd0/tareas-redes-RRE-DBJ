@@ -1,6 +1,17 @@
 import sys
 import socket
 
+def parse_packet(IP_packet: bytes):
+    # Ip: Primeros 4 bytes.
+    # Puerto: Siguientes 2 bytes.
+    # Mensaje: Resto del paquete.
+    parsed = {
+        "header": {"a": IP_packet[0], "b": IP_packet[1], "c": IP_packet[2], "d": IP_packet[3], "puerto": int.from_bytes(IP_packet[4:6], "big")},
+        "body": IP_packet[6:].decode(),
+    }
+    return parsed
+
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
