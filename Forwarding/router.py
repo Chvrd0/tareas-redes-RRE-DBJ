@@ -6,7 +6,7 @@ def parse_packet(IP_packet: bytes):
     # Puerto: Siguientes 2 bytes.
     # Mensaje: Resto del paquete.
     parsed = {
-        "header": {"a": IP_packet[0], "b": IP_packet[1], "c": IP_packet[2], "d": IP_packet[3], "puerto": int.from_bytes(IP_packet[4:6], "big")},
+        "header": {"address": f"{IP_packet[0]}.{IP_packet[1]}.{IP_packet[2]}.{IP_packet[3]}", "a": IP_packet[0], "b": IP_packet[1], "c": IP_packet[2], "d": IP_packet[3], "puerto": int.from_bytes(IP_packet[4:6], "big")},
         "body": IP_packet[6:].decode(),
     }
     return parsed
@@ -28,7 +28,7 @@ def check_routes(routes_file_name: str, destination_address: tuple[str, int])-> 
             puerto_inicio = int(partes[1])
             puerto_fin = int(partes[2])
             if puerto_inicio <= target_port <= puerto_fin:
-                return (partes[3], partes[4])
+                return (partes[3], int(partes[4]))
     return None
 
 IP_PACKET_1 = bytes([192, 168, 1, 100]) + (5000).to_bytes(2, "big") + b"Hola, este es un mensaje de prueba."
@@ -57,5 +57,15 @@ if __name__ == "__main__":
         data, addr = router.recvfrom(1024)
 
         parsed = parse_packet(data)
-        print(f"Paquete parseado: {parsed}")
 
+        if parsed["header"]["puerto"] == puerto:
+            print(parsed["body"])
+        
+        else:
+            hop = check_routes(rutas, (f"{parsed['header']['address']}", parsed["header"]["puerto"]))
+            if hop is None:
+                print(f"No hay rutas hacia {parsed['header']['address']}:{parsed['header']['puerto']} para paquete {parsed["header"]["address"]}:{parsed["header"]["puerto"]}")
+
+            else:
+                print(f"Redirigiendo paquete {parsed['header']['address']}:{parsed['header']['puerto']} con destino final {parsed['header']['address']}:{parsed['header']['puerto']} desde {address} hacia {hop[0]}:{hop[1]}")
+                router.sendto(data, hop)
