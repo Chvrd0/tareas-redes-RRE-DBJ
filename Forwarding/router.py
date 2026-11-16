@@ -20,6 +20,16 @@ def create_packet(parsed_IP_packet):
 
     return ip + puerto + body
 
+def check_routes(routes_file_name: str, destination_address: tuple[str, int])-> tuple[str, int]:
+    with open(routes_file_name, "r") as f:
+        for line in f:
+            partes = line.split(" ")
+            target_port = destination_address[1]
+            puerto_inicio = int(partes[1])
+            puerto_fin = int(partes[2])
+            if puerto_inicio <= target_port <= puerto_fin:
+                return (partes[3], partes[4])
+    return None
 
 IP_PACKET_1 = bytes([192, 168, 1, 100]) + (5000).to_bytes(2, "big") + b"Hola, este es un mensaje de prueba."
 PARSED_PACKET_1 = parse_packet(IP_PACKET_1)
@@ -41,7 +51,7 @@ if __name__ == "__main__":
     rutas = sys.argv[3]
     print(f"Router iniciado en {ip}:{puerto} con rutas: {rutas}")
 
-    
+    print(check_routes(rutas, ("192.168.1.100", 8882)))
 
     while True:
         data, addr = router.recvfrom(1024)
