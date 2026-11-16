@@ -20,6 +20,11 @@ def create_packet(parsed_IP_packet):
 
     return ip + puerto + body
 
+
+IP_PACKET_1 = bytes([192, 168, 1, 100]) + (5000).to_bytes(2, "big") + b"Hola, este es un mensaje de prueba."
+PARSED_PACKET_1 = parse_packet(IP_PACKET_1)
+IP_PACKET_2 = create_packet(PARSED_PACKET_1)
+
 if __name__ == "__main__":
     if len(sys.argv) != 4:
         print("Uso: python3 router.py <IP> <Puerto> <Rutas>")
@@ -31,6 +36,7 @@ if __name__ == "__main__":
 
     router = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     router.bind(address)
+    print("IP_packet_v1 == IP_packet_v2 ? {}".format(IP_PACKET_1 == IP_PACKET_2))
 
     rutas = sys.argv[3]
     print(f"Router iniciado en {ip}:{puerto} con rutas: {rutas}")
