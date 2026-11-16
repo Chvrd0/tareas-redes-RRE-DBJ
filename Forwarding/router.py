@@ -55,4 +55,7 @@ if __name__ == "__main__":
 
     while True:
         data, addr = router.recvfrom(1024)
-        print(f"Mensaje recibido de {addr}: {data.decode()}")
+
+        parsed = parse_packet(data)
+        print(f"Paquete parseado: {parsed}")
+
