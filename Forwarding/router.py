@@ -11,7 +11,14 @@ def parse_packet(IP_packet: bytes):
     }
     return parsed
 
+def create_packet(parsed_IP_packet):
+    header = parsed_IP_packet["header"]
 
+    ip = bytes([header["a"], header["b"], header["c"], header["d"]])
+    puerto = header["puerto"].to_bytes(2, "big")
+    body = parsed_IP_packet["body"].encode()
+
+    return ip + puerto + body
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
