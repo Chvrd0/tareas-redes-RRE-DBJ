@@ -295,3 +295,10 @@ Comprueba el comportamiento del enrutamiento multicamino y el orden de recepció
    python3 msg_sender_ttl.py 127.0.0.1:8885:10 127.0.0.1 8881
    ```
    *Resultado esperado:* Todos los paquetes cuentan con saltos suficientes (`TTL = 10`) para alcanzar `R5` (`8885`). Debido a que `R2`, `R3` y `R4` alternan rutas mediante *Round-Robin* sobre sockets UDP no orientados a conexión, los caminos tienen distinta cantidad de saltos (por ejemplo, `R1 -> R2 -> R3 -> R5` frente a `R1 -> R2 -> R4 -> R2 -> ...`), provocando que los mensajes lleguen desordenados a la consola de `R5`.
+
+## 5. Declaración de Uso de Inteligencia Artificial
+
+En el desarrollo de este proyecto se utilizó apoyo de herramientas de Inteligencia Artificial (Gemini) para las siguientes tareas específicas:
+
+* **Documentación:** Redacción de *docstrings*, comentarios explicativos en los scripts de Python (`router.py`, `routerTTL.py`, `msg_sender.py`, `msg_sender_ttl.py`) y estructuración de este archivo `README.md`.
+* **Asistencia en lógica de enrutamiento:** Apoyo en el diseño e implementación del mecanismo de selección cíclica de rutas (*Round-Robin*) por área de destino en la función `check_routes`.
