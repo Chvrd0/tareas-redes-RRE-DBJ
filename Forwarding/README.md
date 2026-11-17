@@ -1,6 +1,6 @@
 # Simulador de Enrutamiento de Paquetes sobre UDP
 
-Este proyecto implementa una simulación de red de capa de transporte/red utilizando sockets UDP (`SOCK_DGRAM`) en Python. Permite levantar múltiples instancias de routers en distintos puertos locales, configurar topologías mediante tablas de enrutamiento en texto plano, balancear tráfico mediante *Round-Robin* y prevenir bucles de red mediante un campo **TTL** (*Time To Live*).
+Este proyecto implementa una simulación de red de capa de transporte/red utilizando sockets UDP en Python. Permite levantar múltiples instancias de routers en distintos puertos locales, configurar topologías mediante tablas de enrutamiento en texto plano, balancear tráfico mediante *Round-Robin* y prevenir bucles de red mediante un campo **TTL**.
 
 ---
 
@@ -8,27 +8,27 @@ Este proyecto implementa una simulación de red de capa de transporte/red utiliz
 
 Existen dos implementaciones de router: `router.py` (sin control de saltos) y `routerTTL.py` (con control de saltos máximos). Ambos siguen un ciclo de vida basado en eventos sobre datagramas UDP:
 
-1. **Inicialización:** El proceso recibe `<IP>`, `<Puerto>` y `<Archivo_Rutas>` por línea de comandos, crea un socket UDP IPv4 (`AF_INET`, `SOCK_DGRAM`) y lo enlaza (`bind`) a la dirección local especificada.
-2. **Recepción y Deserialización (`parse_packet`):** En un bucle infinito (`recvfrom(1024)`), el router extrae la cabecera personalizada de los primeros bytes del datagrama:
+1. **Inicialización:** El proceso recibe `<IP>`, `<Puerto>` y `<Archivo_Rutas>` por línea de comandos, crea un socket UDP IPv4 y lo enlaza a la dirección local especificada.
+2. **Recepción y Deserialización:** En un bucle infinito, el router extrae la cabecera personalizada de los primeros bytes del datagrama:
    * **Versión base (`router.py` — 6 bytes de cabecera):**
      * `Bytes [0:4]`: Dirección IPv4 de destino final (4 octetos).
      * `Bytes [4:6]`: Puerto de destino final en formato *Big-Endian* (2 bytes).
-     * `Bytes [6:]`: Carga útil (*payload*) del mensaje en UTF-8.
+     * `Bytes [6:]`: Contenido del mensaje en UTF-8.
    * **Versión con TTL (`routerTTL.py` — 7 bytes de cabecera):**
      * `Bytes [0:4]`: Dirección IPv4 de destino final.
      * `Bytes [4:6]`: Puerto de destino final en formato *Big-Endian*.
      * `Byte  [6]`: Valor actual del **TTL** (1 byte sin signo).
-     * `Bytes [7:]`: Carga útil (*payload*) del mensaje en UTF-8.
+     * `Bytes [7:]`: Contenido del mensaje en UTF-8.
 3. **Verificación de TTL (solo `routerTTL.py`):** Antes de procesar el destino, si `ttl == 0`, el router descarta el paquete inmediatamente e informa la expiración en consola.
 4. **Entrega Local vs. Reenvío:**
    * **Entrega local:** Si el puerto de destino en la cabecera coincide con el puerto en el que escucha el router actual, se considera que el paquete llegó a su destino y se imprime el cuerpo del mensaje en salida estándar.
-   * **Reenvío (*Forwarding*):** Si el puerto destino es distinto, el router consulta su tabla de rutas mediante `check_routes()`.
+   * **Forwarding:** Si el puerto destino es distinto, el router consulta su tabla de rutas mediante `check_routes()`.
      * Si no existe ruta válida (`None`), el paquete se descarta y se registra el error.
-     * Si existe un siguiente salto (*next hop*), `routerTTL.py` decrementa el campo `ttl` en `1`, vuelve a serializar el paquete (`create_packet`) y lo envía al salto seleccionado con `sendto()`.
+     * Si existe un siguiente salto, `routerTTL.py` decrementa el campo `ttl` en `1`, vuelve a serializar el paquete y lo envía al salto seleccionado con `sendto()`.
 
 ---
 
-## 2. Uso de los Clientes Emisores (*Senders*)
+## 2. Uso de los Clientes Emisores
 
 Los emisores permiten inyectar paquetes en un **router de entrada** (primer salto) indicando dentro de la cabecera cuál es el **destino final** que debe resolver la red.
 
@@ -296,9 +296,11 @@ Comprueba el comportamiento del enrutamiento multicamino y el orden de recepció
    ```
    *Resultado esperado:* Todos los paquetes cuentan con saltos suficientes (`TTL = 10`) para alcanzar `R5` (`8885`). Debido a que `R2`, `R3` y `R4` alternan rutas mediante *Round-Robin* sobre sockets UDP no orientados a conexión, los caminos tienen distinta cantidad de saltos (por ejemplo, `R1 -> R2 -> R3 -> R5` frente a `R1 -> R2 -> R4 -> R2 -> ...`), provocando que los mensajes lleguen desordenados a la consola de `R5`.
 
+---
+
 ## 5. Declaración de Uso de Inteligencia Artificial
 
-En el desarrollo de este proyecto se utilizó apoyo de herramientas de Inteligencia Artificial (Gemini) para las siguientes tareas específicas:
+En el desarrollo de este proyecto se utilizó apoyo de herramientas de Inteligencia Artificial para las siguientes tareas específicas:
 
 * **Documentación:** Redacción de *docstrings*, comentarios explicativos en los scripts de Python (`router.py`, `routerTTL.py`, `msg_sender.py`, `msg_sender_ttl.py`) y estructuración de este archivo `README.md`.
 * **Asistencia en lógica de enrutamiento:** Apoyo en el diseño e implementación del mecanismo de selección cíclica de rutas (*Round-Robin*) por área de destino en la función `check_routes`.
