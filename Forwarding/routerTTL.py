@@ -1,30 +1,99 @@
+"""Simulador de enrutamiento de paquetes sobre sockets UDP con control de TTL.
+
+Este módulo implementa un router básico que escucha datagramas UDP en una
+dirección y puerto específicos, inspecciona la cabecera personalizada del
+paquete (incluyendo un campo *Time To Live*) para evitar bucles infinitos
+de enrutamiento, y lo consume localmente o lo reenvía al siguiente salto
+(*next hop*) aplicando balanceo de carga Round-Robin.
+
+Uso desde terminal:
+    python3 routerTTL.py <IP> <Puerto> <Archivo_Rutas>
+"""
+
 import sys
 import socket
 
-def parse_packet(IP_packet: bytes):
-    # Ip: Primeros 4 bytes.
-    # TTL: Quinto byte.
-    # Puerto: Siguientes 2 bytes.
-    # Mensaje: Resto del paquete.
+
+def parse_packet(IP_packet: bytes) -> dict:
+    """Deserializa un paquete en bytes a una estructura de diccionario.
+
+    Estructura esperada del paquete (cabecera de 7 bytes):
+        - Bytes [0:4]: Dirección IPv4 de destino (4 octetos).
+        - Bytes [4:6]: Puerto de destino en formato Big-Endian (2 bytes).
+        - Byte  [6]:   Tiempo de vida o *Time To Live* (TTL, 1 byte sin signo).
+        - Bytes [7:]:  Carga útil (*payload*) codificada en UTF-8.
+
+    Args:
+        IP_packet (bytes): Secuencia de bytes recibida por el socket.
+
+    Returns:
+        dict: Diccionario con las claves ``"header"`` (dirección completa,
+        octetos individuales ``a``, ``b``, ``c``, ``d``, ``puerto`` y ``ttl``)
+        y ``"body"`` (mensaje decodificado como ``str``).
+    """
     parsed = {
-        "header": {"address": f"{IP_packet[0]}.{IP_packet[1]}.{IP_packet[2]}.{IP_packet[3]}", "a": IP_packet[0], "b": IP_packet[1], "c": IP_packet[2], "d": IP_packet[3], "puerto": int.from_bytes(IP_packet[4:6], "big"), "ttl": IP_packet[6]},
+        "header": {
+            "address": f"{IP_packet[0]}.{IP_packet[1]}.{IP_packet[2]}.{IP_packet[3]}",
+            "a": IP_packet[0],
+            "b": IP_packet[1],
+            "c": IP_packet[2],
+            "d": IP_packet[3],
+            "puerto": int.from_bytes(IP_packet[4:6], "big"),
+            "ttl": IP_packet[6],
+        },
         "body": IP_packet[7:].decode(),
     }
     return parsed
 
-def create_packet(parsed_IP_packet):
+
+def create_packet(parsed_IP_packet: dict) -> bytes:
+    """Serializa un diccionario de paquete estructurado a formato de bytes.
+
+    Incluye el valor actualizado del campo ``ttl`` en el séptimo byte de la
+    cabecera antes de concatenar la carga útil.
+
+    Args:
+        parsed_IP_packet (dict): Diccionario con formato equivalente al
+            retornado por :func:`parse_packet`.
+
+    Returns:
+        bytes: Paquete listo para ser transmitido a través de un socket UDP.
+    """
     header = parsed_IP_packet["header"]
 
     ip = bytes([header["a"], header["b"], header["c"], header["d"]])
     puerto = header["puerto"].to_bytes(2, "big")
     body = parsed_IP_packet["body"].encode()
-    ttl = bytes([header["ttl"]]) 
+    ttl = bytes([header["ttl"]])
 
     return ip + puerto + ttl + body
 
+
+# Estado global para mantener el índice de rotación (Round-Robin) por cada
+# conjunto de rutas candidatas asociado a un archivo de rutas.
 ultimo_indice_por_area: dict[tuple[str, tuple[tuple[str, int], ...]], int] = {}
 
-def check_routes(routes_file_name: str, destination_address: tuple[str, int]) -> tuple[str, int]:
+
+def check_routes(
+    routes_file_name: str, destination_address: tuple[str, int]
+) -> tuple[str, int] | None:
+    """Consulta la tabla de rutas y selecciona el siguiente salto (*next hop*).
+
+    Lee el archivo de rutas buscando entradas cuyo rango de puertos cubra el
+    puerto de destino. Si existen múltiples rutas candidatas para el mismo
+    rango, alterna entre ellas de forma cíclica (Round-Robin).
+
+    Formato esperado por línea en ``routes_file_name``:
+        ``<Red/ID> <Puerto_Inicio> <Puerto_Fin> <IP_Next_Hop> <Puerto_Next_Hop>``
+
+    Args:
+        routes_file_name (str): Ruta al archivo de texto con la tabla de enrutamiento.
+        destination_address (tuple[str, int]): Tupla ``(ip, puerto)`` del destino final.
+
+    Returns:
+        tuple[str, int] | None: Tupla ``(ip_salto, puerto_salto)`` del siguiente
+        router al cual reenviar el paquete, o ``None`` si no existe ruta válida.
+    """
     target_port = destination_address[1]
     candidatas: list[tuple[str, int]] = []
 
@@ -32,29 +101,39 @@ def check_routes(routes_file_name: str, destination_address: tuple[str, int]) ->
         for line in f:
             partes = line.split()
             if len(partes) < 5:
-                continue  # línea vacía o mal formada
+                continue  # Ignora líneas vacías o mal formadas
 
             puerto_inicio = int(partes[1])
             puerto_fin = int(partes[2])
 
+            # Verifica si el puerto destino cae dentro del rango de la ruta
             if puerto_inicio <= target_port <= puerto_fin:
                 candidatas.append((partes[3], int(partes[4])))
 
     if not candidatas:
         return None
 
-    # El "área" queda definida por quiénes son las candidatas para este puerto.
+    # Selección Round-Robin: la clave identifica el grupo de rutas candidatas
     clave = (routes_file_name, tuple(candidatas))
     indice = ultimo_indice_por_area.get(clave, 0) % len(candidatas)
     ultimo_indice_por_area[clave] = (indice + 1) % len(candidatas)
 
     return candidatas[indice]
 
-IP_PACKET_1 = bytes([192, 168, 1, 100]) + (5000).to_bytes(2, "big") + (10).to_bytes(1, "big") + b"Hola, este es un mensaje de prueba."
+
+# --- Datos de prueba para verificación de serialización/deserialización ---
+IP_PACKET_1 = (
+    bytes([192, 168, 1, 100])
+    + (5000).to_bytes(2, "big")
+    + (10).to_bytes(1, "big")
+    + b"Hola, este es un mensaje de prueba."
+)
 PARSED_PACKET_1 = parse_packet(IP_PACKET_1)
 IP_PACKET_2 = create_packet(PARSED_PACKET_1)
 
+
 if __name__ == "__main__":
+    # Validación de argumentos de línea de comandos
     if len(sys.argv) != 4:
         print("Uso: python3 router.py <IP> <Puerto> <Rutas>")
         sys.exit(1)
@@ -62,32 +141,46 @@ if __name__ == "__main__":
     ip = sys.argv[1]
     puerto = int(sys.argv[2])
     address = (ip, puerto)
+    rutas = sys.argv[3]
 
+    # Inicialización del socket UDP (AF_INET = IPv4, SOCK_DGRAM = UDP)
     router = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     router.bind(address)
-    print("IP_packet_v1 == IP_packet_v2 ? {}".format(IP_PACKET_1 == IP_PACKET_2))
-
-    rutas = sys.argv[3]
+    #print("IP_packet_v1 == IP_packet_v2 ? {}".format(IP_PACKET_1 == IP_PACKET_2))
     print(f"Router iniciado en {ip}:{puerto} con rutas: {rutas}")
 
+    # Bucle principal de recepción, control de TTL y reenvío de paquetes
     while True:
         data, addr = router.recvfrom(1024)
-
         parsed = parse_packet(data)
 
+        # Descarta el paquete si su tiempo de vida se ha agotado (TTL == 0)
         if parsed["header"]["ttl"] == 0:
             print(f"Se recibió paquete {parsed['header']['address']} con TTL 0.")
             continue
 
+        # Si el puerto de destino coincide con el puerto local, consume el mensaje
         if parsed["header"]["puerto"] == puerto:
             print(parsed["body"])
-        
         else:
-            hop = check_routes(rutas, (f"{parsed['header']['address']}", parsed["header"]["puerto"]))
-            if hop is None:
-                print(f"No hay rutas hacia {parsed['header']['address']}:{parsed['header']['puerto']} para paquete {parsed["header"]["address"]}:{parsed["header"]["puerto"]}")
+            # Busca el siguiente salto en la tabla de rutas
+            destino_final = (
+                f"{parsed['header']['address']}",
+                parsed["header"]["puerto"],
+            )
+            hop = check_routes(rutas, destino_final)
 
+            if hop is None:
+                print(
+                    f"No hay rutas hacia {parsed['header']['address']}:{parsed['header']['puerto']} "
+                    f"para paquete {parsed['header']['address']}:{parsed['header']['puerto']}"
+                )
             else:
+                # Decrementa el TTL antes de re-serializar y reenviar al siguiente salto
                 parsed["header"]["ttl"] -= 1
-                print(f"Redirigiendo paquete {parsed['header']['address']}:{parsed['header']['puerto']} con destino final {parsed['header']['address']}:{parsed['header']['puerto']} desde {address} hacia {hop[0]}:{hop[1]}")
+                print(
+                    f"Redirigiendo paquete {parsed['header']['address']}:{parsed['header']['puerto']} "
+                    f"con destino final {parsed['header']['address']}:{parsed['header']['puerto']} "
+                    f"desde {address} hacia {hop[0]}:{hop[1]}"
+                )
                 router.sendto(create_packet(parsed), hop)
