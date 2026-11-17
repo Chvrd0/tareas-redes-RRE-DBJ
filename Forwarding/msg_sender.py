@@ -6,10 +6,10 @@ socket_sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 socket_sender.bind(address)
 
 while True:
-    ip_destino = input("Ingrese la IP de destino: ")
+    ip_destino = "127.0.0.1"
     puerto_destino = int(input("Ingrese el puerto de destino: "))
 
-    ip_envio = input("Ingrese la IP de envío: ")
+    ip_envio = "127.0.0.1"
     puerto_envio = int(input("Ingrese el puerto de envío: "))
 
     msg = input("Ingrese el mensaje a enviar: ")
