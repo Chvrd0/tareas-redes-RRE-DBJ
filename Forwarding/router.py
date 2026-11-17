@@ -139,7 +139,7 @@ if __name__ == "__main__":
     # Inicialización del socket UDP (AF_INET = IPv4, SOCK_DGRAM = UDP)
     router = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     router.bind(address)
-
+    #print("IP_packet_v1 == IP_packet_v2 ? {}".format(IP_PACKET_1 == IP_PACKET_2))
     print(f"Router iniciado en {ip}:{puerto} con rutas: {rutas}")
 
     # Bucle principal de recepción y reenvío de paquetes
