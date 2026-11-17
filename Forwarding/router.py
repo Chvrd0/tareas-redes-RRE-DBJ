@@ -20,16 +20,33 @@ def create_packet(parsed_IP_packet):
 
     return ip + puerto + body
 
-def check_routes(routes_file_name: str, destination_address: tuple[str, int])-> tuple[str, int]:
+ultimo_indice_por_area: dict[tuple[str, tuple[tuple[str, int], ...]], int] = {}
+
+def check_routes(routes_file_name: str, destination_address: tuple[str, int]) -> tuple[str, int]:
+    target_port = destination_address[1]
+    candidatas: list[tuple[str, int]] = []
+
     with open(routes_file_name, "r") as f:
         for line in f:
-            partes = line.split(" ")
-            target_port = destination_address[1]
+            partes = line.split()
+            if len(partes) < 5:
+                continue  # línea vacía o mal formada
+
             puerto_inicio = int(partes[1])
             puerto_fin = int(partes[2])
+
             if puerto_inicio <= target_port <= puerto_fin:
-                return (partes[3], int(partes[4]))
-    return None
+                candidatas.append((partes[3], int(partes[4])))
+
+    if not candidatas:
+        return None
+
+    # El "área" queda definida por quiénes son las candidatas para este puerto.
+    clave = (routes_file_name, tuple(candidatas))
+    indice = ultimo_indice_por_area.get(clave, 0) % len(candidatas)
+    ultimo_indice_por_area[clave] = (indice + 1) % len(candidatas)
+
+    return candidatas[indice]
 
 IP_PACKET_1 = bytes([192, 168, 1, 100]) + (5000).to_bytes(2, "big") + b"Hola, este es un mensaje de prueba."
 PARSED_PACKET_1 = parse_packet(IP_PACKET_1)
@@ -46,12 +63,10 @@ if __name__ == "__main__":
 
     router = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     router.bind(address)
-    print("IP_packet_v1 == IP_packet_v2 ? {}".format(IP_PACKET_1 == IP_PACKET_2))
+    #print("IP_packet_v1 == IP_packet_v2 ? {}".format(IP_PACKET_1 == IP_PACKET_2))
 
     rutas = sys.argv[3]
     print(f"Router iniciado en {ip}:{puerto} con rutas: {rutas}")
-
-    print(check_routes(rutas, ("192.168.1.100", 8882)))
 
     while True:
         data, addr = router.recvfrom(1024)
