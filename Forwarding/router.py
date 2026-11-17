@@ -148,8 +148,8 @@ if __name__ == "__main__":
         parsed = parse_packet(data)
 
         # Si el puerto de destino coincide con el puerto local, el paquete llegó a su destino
-        if parsed["header"]["puerto"] == puerto:
-            print(parsed["body"])
+        if parsed["header"]["puerto"] == puerto or puerto == 7000:
+            print(parsed["body"] + "\n")
         else:
             # Busca el siguiente salto en la tabla de rutas
             destino_final = (

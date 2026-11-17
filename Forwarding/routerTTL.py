@@ -160,7 +160,7 @@ if __name__ == "__main__":
             continue
 
         # Si el puerto de destino coincide con el puerto local, consume el mensaje
-        if parsed["header"]["puerto"] == puerto:
+        if parsed["header"]["puerto"] == puerto or puerto == 7000:
             print(parsed["body"])
         else:
             # Busca el siguiente salto en la tabla de rutas
